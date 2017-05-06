@@ -37,7 +37,7 @@
    (dex:post (instance-url instance "/api/v1/apps")
 	     :content `(("client_name" . ,*me*)
 			("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
-			("scopes" . ,scopes)))))
+			("scopes" . ,scopes))))) ;; add website
 
 ;; :TODO change grant_type
 @export
@@ -154,7 +154,7 @@ header = A base64 encoded image to display as the user's header image
 (defun unmute-account (instance token account)
   (account-method-account instance token account "unmute"))
 
-;; TODO array
+;; TODO array after implement accounts struct
 @export
 (defun account-relations (instance token &optional (account nil account-p))
   (let ((user-id (if account-p ;; :TODO duplicated
@@ -167,34 +167,57 @@ header = A base64 encoded image to display as the user's header image
 	      :headers (auth-header token)))))
 
 ;; :TODO limit branch
+;; return accounts
 @export
-(defun search-accounts (instance token query &optional (limit 40))
-  (json:decode-json-from-string
-   (dex:get (strings
-			 "https://"
-			 instance
-			 (format nil "/api/v1/accounts/search?q=~A&limit=~A" query limit))
-	    :headers (auth-header token))))
+(defun search-accounts (instance token query &optional (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "q" query t querys)
+    (push-pair "limit" limit limit-p querys)
+    (json:decode-json-from-string
+     (dex:get (instance-url instance "/api/v1/accounts/search" (get-query (reverse querys)))
+	      :headers (auth-header token)))))
 
 ;;; apps
 ;; :TODO implement query
 @export
-(defun fetch-method (instance token method max-id since-id limit)
+(defun fetch-method (instance token method querys)
   (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/" method)
+   (dex:get (instance-url instance "/api/v1/" method querys)
 	    :headers (auth-header token))))
 
 @export
-(defun fetch-user-blocks (instance token &optional max-id since-id limit)
-  (fetch-method instance token "blocks" max-id since-id limit))
+(defun fetch-user-blocks (instance token &optional
+					   (max-id nil max-p)
+					   (since-id nil since-p)
+					   (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (fetch-method instance token "blocks" querys)))
 
 @export
-(defun fetch-user-favo (instance token &optional max-id since-id limit)
-  (fetch-method instance token "favourites" max-id since-id limit))
+(defun fetch-user-favo (instance token &optional
+					 (max-id nil max-p)
+					 (since-id nil since-p)
+					 (limit nil limit-p))
+  (let ((querys nil))    
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
+    (fetch-method instance token "favourites" querys)))
 
 @export
-(defun fetch-user-follow-req (instance token &optional max-id since-id limit)
-  (fetch-method instance token "follow_requests" max-id since-id limit))
+(defun fetch-user-follow-req
+    (instance token &optional
+					 (max-id nil max-p)
+					 (since-id nil since-p)
+					 (limit nil limit-p))
+  (let ((querys nil))    
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
+    (fetch-method instance token "follow_requests" querys)))
 
 @export
 (defun auth-follow-req (instance token permit id)
