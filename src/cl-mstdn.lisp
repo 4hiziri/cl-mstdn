@@ -220,11 +220,9 @@ header = A base64 encoded image to display as the user's header image
     (fetch-method instance token "follow_requests" querys)))
 
 @export
-(defun auth-follow-req (instance token permit id)
-  (dex:post (strings
-			 "https://"
-			 instance
-			 (format nil "/api/v1/follow_requests/~A/~A" id permit))
+(defun auth-follow-req (instance token permit-method id)
+  (dex:post (instance-url instance
+			  (format nil "/api/v1/follow_requests/~A/~A" id permit-method))
 	    :headers (auth-header token)
 	    :content `(("id" . ,id))))
 
