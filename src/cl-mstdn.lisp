@@ -185,7 +185,7 @@ header = A base64 encoded image to display as the user's header image
 	    :headers (auth-header token))))
 
 @export
-(defun fetch-user-blocks (instance token &optional
+(defun fetch-user-blocks (instance token &key
 					   (max-id nil max-p)
 					   (since-id nil since-p)
 					   (limit nil limit-p))
@@ -196,7 +196,7 @@ header = A base64 encoded image to display as the user's header image
     (fetch-method instance token "blocks" querys)))
 
 @export
-(defun fetch-user-favo (instance token &optional
+(defun fetch-user-favo (instance token &key
 					 (max-id nil max-p)
 					 (since-id nil since-p)
 					 (limit nil limit-p))
@@ -207,7 +207,7 @@ header = A base64 encoded image to display as the user's header image
     (fetch-method instance token "favourites" querys)))
 
 @export
-(defun fetch-user-follow-req (instance token &optional
+(defun fetch-user-follow-req (instance token &key
 					       (max-id nil max-p)
 					       (since-id nil since-p)
 					       (limit nil limit-p))
@@ -256,7 +256,7 @@ header = A base64 encoded image to display as the user's header image
 
 ;; :TODO parameter
 @export
-(defun fetch-user-mutes (instance token &optional
+(defun fetch-user-mutes (instance token &key
 					       (max-id nil max-p)
 					       (since-id nil since-p)
 					       (limit nil limit-p))
@@ -267,7 +267,7 @@ header = A base64 encoded image to display as the user's header image
     (fetch-method instance token "mutes" querys)))
 
 @export
-(defun fetch-user-notifications (instance token &optional
+(defun fetch-user-notifications (instance token &key
 						  (max-id nil max-p)
 						  (since-id nil since-p)
 						  (limit nil limit-p))
@@ -319,55 +319,46 @@ header = A base64 encoded image to display as the user's header image
 
 ;;; statuses
 @export
-(defun fetch-status-method (instance account-id method)
+(defun fetch-status-method (instance status-id method)
   (json:decode-json-from-string
-   (dex:get (strings
-			 "https://"
-			 instance
-			 "/api/v1/statuses/"
-			 (format nil "~A" account-id)
-			 method))))
+   (dex:get (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) method))))
 
 @export
-(defun fetch-status (instance account-id)
-  (fetch-status-method instance account-id ""))
+(defun fetch-status (instance status-id)
+  (fetch-status-method instance status-id ""))
 
 @export
-(defun fetch-status-context (instance account-id)
-  (fetch-status-method instance account-id "/context"))
+(defun fetch-status-context (instance status-id)
+  (fetch-status-method instance status-id "/context"))
 
 @export
-(defun fetch-status-card (instance account-id)
-  (fetch-status-method instance account-id "/card"))
+(defun fetch-status-card (instance status-id)
+  (fetch-status-method instance status-id "/card"))
 
 @export
-(defun fetch-status-method-with-param (instance account-id method &optional max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (strings
-			 "https://"
-			 instance
-			 "/api/v1/statuses/"
-			 (format nil "~A" account-id)
-			 method))))
-
-@export
-(defun get-who-method (instance status-id method &optional max-id since-id limit)
+(defun get-who-method (instance status-id method querys)
   (json:decode-json-from-string   
-   (dex:get (strings
-			 "https://"
-			 instance
-			 "/api/v1/statuses/"
-			 (princ-to-string status-id)
-			 "/"
-			 method))))
+   (dex:get (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) "/" method querys))))
 
 @export
-(defun get-who-reblog (instance status-id &optional max-id since-id limit)
-  (get-who-method instance status-id "reblogged_by"))
+(defun get-who-reblog (instance status-id &key (max-id nil max-p)
+					    (since-id nil since-p)
+					    (limit nil limit-p))
+  (let ((querys nil))    
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)    
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (get-who-method instance status-id "reblogged_by" querys)))
 
 @export
-(defun get-who-favourited (instance status-id &optional max-id since-id limit)
-  (get-who-method instance status-id "favourited_by"))
+(defun get-who-reblog (instance status-id &key (max-id nil max-p)
+					    (since-id nil since-p)
+					    (limit nil limit-p))
+  (let ((querys nil))    
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)    
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (get-who-method instance status-id "favourited_by" querys)))
 
 @export
 (defun post-new-status (instance token status-txt)
