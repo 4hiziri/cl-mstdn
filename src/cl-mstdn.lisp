@@ -156,13 +156,14 @@ header = A base64 encoded image to display as the user's header image
 
 ;; TODO array
 @export
-(defun account-relations (instance token account)
-  (let ((user-id (cdr (assoc :id account))))
+(defun account-relations (instance token &optional (account nil account-p))
+  (let ((user-id (if account-p ;; :TODO duplicated
+		     (princ-to-string (cdr (assoc :id account)))
+		     "")))
     (json:decode-json-from-string
-     (dex:get (strings
-			    "https://"
-			    instance
-			    (format nil "/api/v1/accounts/relationships?id=~A" user-id))
+     (dex:get (instance-url instance "/api/v1/accounts/relationships" (if account-p
+									  (strings "?id=" user-id)
+									  ""))
 	      :headers (auth-header token)))))
 
 ;; :TODO limit branch
