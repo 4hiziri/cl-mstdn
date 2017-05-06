@@ -85,8 +85,9 @@ header = A base64 encoded image to display as the user's header image
 	       :headers (auth-header token)
 	       :content content))
 
+;; :WARN max_id and since_id do wired behaviour
 @export
-(defun get-followers (instance token user-id &optional
+(defun get-followers (instance token user-id &key
 					       (max-id nil max-id-p)
 					       (since-id nil since-id-p)
 					       (limit 0 limit-p))
@@ -94,21 +95,30 @@ header = A base64 encoded image to display as the user's header image
 	(uid (princ-to-string user-id)))
     (push-pair "max_id" (princ-to-string max-id) max-id-p querys)
     (push-pair "since_id" (princ-to-string since-id) since-id-p querys)
-    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
     (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/accounts/" uid "/following" (get-query querys))
+     (dex:get (instance-url instance "/api/v1/accounts/" uid "/following" (get-query querys)) ;; rev?
 	      :headers (auth-header token)))))
 
 ;; TODO query
 ;; TODO another user
+;; return statuses
 @export
-(defun get-account-status (instance token)  
-  (let ((user-id (cdr (assoc :id (get-current-user instance token)))))
+(defun get-account-status (instance token user-id &key
+						    (only-media nil media-p)
+						    (exclude-rep nil rep-p)
+						    (max-id nil max-p)
+						    (since-id nil since-p)
+						    (limit nil limit-p))
+  (let ((querys nil)
+	(uid (princ-to-string user-id)))
+    (push-pair "only_media" only-media media-p querys) ;; need test. It will take t or nil
+    (push-pair "exclude_replies" exclude-rep rep-p querys) ;; need test. It will take t or nil
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
     (json:decode-json-from-string
-     (dex:get (strings
-			   "https://"
-			   instance
-			   (format nil "/api/v1/accounts/~A/statuses" 239))
+     (dex:get (strings "https://" instance "/api/v1/accounts/" uid "/statuses")
 	      :headers (auth-header token)))))
 
 @export
