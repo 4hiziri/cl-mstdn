@@ -6,7 +6,8 @@
 (ql:quickload 'dexador)
 (ql:quickload 'json)
 (ql:quickload 'cl-annot)
-(ql:quickload 'usocket)
+(ql:quickload :websocket-driver-client)
+
 ;; :TODO stream api implement, write description
 
 @export
@@ -374,12 +375,7 @@ header = A base64 encoded image to display as the user's header image
    (dex:get (concatenate 'string "https://" instance "/api/v1/timelines/tag/" hash-tag))))
 
 ;;; stream API
-;; :FIX error?
-@export
-(defun get-user-events (instance token)
-  (dex:get (concatenate 'string "https://" instance "/api/v1/streaming/user")
-	   :headers (auth-header token)))
+;;; https://github.com/tootsuite/documentation/blob/master/Using-the-API/Streaming-API.md
 
-@export
-(defun get-public-events (instance)
-  (dex:get (concatenate 'string "https://" instance "/api/v1/streaming/public")))
+;; :TODO websocket implement
+;;; https://gist.github.com/twi-light-sparkle/59302f013de9d7ef5821
