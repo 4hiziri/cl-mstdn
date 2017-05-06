@@ -6,6 +6,7 @@
 (ql:quickload 'dexador)
 (ql:quickload 'json)
 (ql:quickload 'cl-annot)
+(ql:quickload 'usocket)
 ;; :TODO stream api implement, write description
 
 @export
@@ -375,6 +376,10 @@ header = A base64 encoded image to display as the user's header image
 ;;; stream API
 ;; :FIX error?
 @export
-(defun get-user-event (instance token)
+(defun get-user-events (instance token)
   (dex:get (concatenate 'string "https://" instance "/api/v1/streaming/user")
 	   :headers (auth-header token)))
+
+@export
+(defun get-public-events (instance)
+  (dex:get (concatenate 'string "https://" instance "/api/v1/streaming/public")))
