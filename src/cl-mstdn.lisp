@@ -360,8 +360,15 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "limit" (princ-to-string limit) limit-p querys)
     (get-who-method instance status-id "favourited_by" querys)))
 
+
+;;; MEMO val isn't needed
 @export
-(defun post-new-status (instance token status-txt)
+(defun post-new-status (instance token status-txt &key
+						    (in-rep-to-id nil rep-p)
+						    (media-ids nil media-p)
+						    (sensitive nil sensitive-p)
+						    (spoiler-text nil spoiler-p)
+						    (visibility nil visibility-p))
   "form data:
     status: The text of the status
     in_reply_to_id (optional): local ID of the status you want to reply to
@@ -370,9 +377,17 @@ header = A base64 encoded image to display as the user's header image
     spoiler_text (optional): text to be shown as a warning before the actual content
     visibility (optional): either \"direct\", \"private\", \"unlisted\" or \"public\"
 "
-  (dex:post (instance-url instance "/api/v1/statuses")
-	    :headers (auth-header token)
-	    :content `(("status" . ,status-txt))))
+  (let ((param nil))
+    (push-pair "status" status-txt t param)
+    (push-pair "in_reply_to_id" in-rep-to-id rep-p param)
+    (push-pair "media_ids" media-ids media-p param)
+    (push-pair "sensitive" sensitive sensitive-p param)
+    (push-pair "spoiler_text" spoiler-text spoiler-p param)
+    (push-pair "visibility" visibility visibility-p param)
+    (json:decode-json-from-string
+     (dex:post (instance-url instance "/api/v1/statuses")
+	       :headers (auth-header token)
+	       :content param))))
 
 @export
 (defun delete-status (instance token status-id)
@@ -384,13 +399,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun status-method (instance token status-id method)
   (json:decode-json-from-string
-   (dex:post (strings
-			  "https://"
-			  instance
-			  "/api/v1/statuses/"
-			  (princ-to-string status-id)
-			  "/"
-			  method)
+   (dex:post (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) "/" method)
 	     :headers (auth-header token))))
 
 ;; boost
@@ -413,20 +422,40 @@ header = A base64 encoded image to display as the user's header image
 
 ;;; timeline
 @export
-(defun get-home-timeline (instance token &optional max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/timelines/home")
-	    :headers (auth-header token))))
+(defun get-home-timeline (instance token &key (max-id nil max-p)
+					   (since-id nil since-p)
+					   (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (fetch-method instance token "timelines/home" querys)))
 
 @export
-(defun get-public-timeline (instance &optional local max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/timelines/public"))))
+(defun get-public-timeline (instance &key (local nil local-p)
+				       (max-id nil max-p)
+				       (since-id nil since-p)
+				       (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "local" local local-p querys)
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (json:decode-json-from-string
+     (dex:get (instance-url instance "/api/v1/timelines/public" (get-query querys))))))
 
 @export
-(defun get-hashtag-timeline (instance hash-tag &optional local max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/timelines/tag/" hash-tag))))
+(defun get-hashtag-timeline (instance hash-tag &key (local nil local-p)
+						(max-id nil max-p)
+						(since-id nil since-p)
+						(limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "local" local local-p querys)
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
+    (json:decode-json-from-string
+     (dex:get (instance-url instance "/api/v1/timelines/tag/" hash-tag (get-query querys))))))
 
 ;;; stream API
 ;;; https://github.com/tootsuite/documentation/blob/master/Using-the-API/Streaming-API.md
