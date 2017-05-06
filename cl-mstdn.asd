@@ -19,8 +19,7 @@
   :depends-on (:dexador
                :cl-json
                :cl-annot
-	       :ironclad
-	       :usocket)
+	       :ironclad)
   :components ((:module "src"
                 :components
                 ((:file "cl-mstdn"))))
