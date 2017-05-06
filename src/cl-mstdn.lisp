@@ -121,14 +121,12 @@ header = A base64 encoded image to display as the user's header image
      (dex:get (strings "https://" instance "/api/v1/accounts/" uid "/statuses")
 	      :headers (auth-header token)))))
 
+;; return relationships
 @export
 (defun account-method-account (instance token account method)
-  (let ((user-id (cdr (assoc :id account))))
+  (let ((user-id (princ-to-string (cdr (assoc :id account)))))
     (json:decode-json-from-string
-     (dex:post (strings
-			    "https://"
-			    instance
-			    (format nil "/api/v1/accounts/~A/~A" user-id method))
+     (dex:post (instance-url instance "/api/v1/accounts/" (format nil "~A/~A" user-id method))
 	       :headers (auth-header token)))))
 
 ;; :TODO research HOW TO Follow
