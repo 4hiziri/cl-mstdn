@@ -277,13 +277,11 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "limit" (princ-to-string limit) limit-p querys)    
     (fetch-method instance token "notifications" querys)))
 
+;; return notifications
 @export
 (defun fetch-user-notification (instance token id)
   (json:decode-json-from-string
-   (dex:get (strings
-			 "https://"
-			 instance
-			 (format nil "/api/v1/notifications/~A" id))
+   (dex:get (instance-url instance (format nil "/api/v1/notifications/~A" id))
 	    :headers (auth-header token))))
 
 @export
@@ -298,6 +296,8 @@ header = A base64 encoded image to display as the user's header image
    (dex:get (instance-url instance "/api/v1/reports")
 	    :headers (auth-header token))))
 
+;; return report
+;; TODO array
 @export
 (defun report-user (instance token account-id status-ids comment)
   (json:decode-json-from-string
@@ -308,15 +308,14 @@ header = A base64 encoded image to display as the user's header image
 			("comment" . ,comment)))))
 
 ;;; search
-;; :TODO resolve check
+;; TODO resolve check
 @export
 (defun search-contents (instance query resolve)
-  (json:decode-json-from-string
-   (dex:get (strings
-			 "https://"
-			 instance
-			 "/api/v1/search"
-			 (format nil "?q=~A&resolve=~A" query resolve)))))
+  (let ((querys nil))
+    (push-pair "q" query t querys)
+    (push-pair "resolve" resolve t querys)
+    (json:decode-json-from-string
+     (dex:get (instance-url instance "/api/v1/search" (get-query querys))))))
 
 ;;; statuses
 @export
