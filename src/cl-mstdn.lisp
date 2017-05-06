@@ -179,7 +179,6 @@ header = A base64 encoded image to display as the user's header image
 
 ;;; apps
 ;; :TODO implement query
-@export
 (defun fetch-method (instance token method querys)
   (json:decode-json-from-string
    (dex:get (instance-url instance "/api/v1/" method querys)
@@ -208,11 +207,10 @@ header = A base64 encoded image to display as the user's header image
     (fetch-method instance token "favourites" querys)))
 
 @export
-(defun fetch-user-follow-req
-    (instance token &optional
-					 (max-id nil max-p)
-					 (since-id nil since-p)
-					 (limit nil limit-p))
+(defun fetch-user-follow-req (instance token &optional
+					       (max-id nil max-p)
+					       (since-id nil since-p)
+					       (limit nil limit-p))
   (let ((querys nil))    
     (push-pair "max_id" (princ-to-string max-id) max-p querys)    
     (push-pair "since_id" (princ-to-string since-id) since-p querys)
@@ -242,30 +240,42 @@ header = A base64 encoded image to display as the user's header image
 	     :headers (auth-header token)
 	     :content `(("uri" . ,user-uri)))))
 
+;; return instance
 @export
 (defun instances-info (instance)
   (json:decode-json-from-string
    (dex:get (instance-url instance "/api/v1/instance"))))
 
 ;; :TODO researh how to use
+;; return attachment, maybe add attachment'id to statuses
 @export
-(defun upload-media (instance token file)
+(defun upload-media (instance token file-data)
   (dex:post (instance-url instance "/api/v1/media")
 	    :headers (auth-header token)
 	    :content `(("file" . ,file))))
 
 ;; :TODO parameter
 @export
-(defun fetch-user-mutes (instance token &optional max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/mutes")
-	    :headers (auth-header token))))
+(defun fetch-user-mutes (instance token &optional
+					       (max-id nil max-p)
+					       (since-id nil since-p)
+					       (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
+    (fetch-method instance token "mutes" querys)))
 
 @export
-(defun fetch-user-notifications (instance token &optional max-id since-id limit)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/notifications")
-	    :headers (auth-header token))))
+(defun fetch-user-notifications (instance token &optional
+						  (max-id nil max-p)
+						  (since-id nil since-p)
+						  (limit nil limit-p))
+  (let ((querys nil))
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+    (push-pair "since_id" (princ-to-string since-id) since-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)    
+    (fetch-method instance token "notifications" querys)))
 
 @export
 (defun fetch-user-notification (instance token id)
