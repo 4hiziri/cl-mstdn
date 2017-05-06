@@ -234,12 +234,13 @@ header = A base64 encoded image to display as the user's header image
 (defun reject-follow-req (instance token id)
   (auth-follow-req instance token "reject" id))
 
+;; return accounts
 @export
-(defun follow (instance token uri)
+(defun follow (instance token user-uri)
   (json:decode-json-from-string
    (dex:post (instance-url instance "/api/v1/follows")
 	     :headers (auth-header token)
-	     :content `(("uri" . ,uri)))))
+	     :content `(("uri" . ,user-uri)))))
 
 @export
 (defun instances-info (instance)
