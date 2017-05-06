@@ -18,7 +18,8 @@
   :license ""
   :depends-on (:dexador
                :cl-json
-               :cl-annot)
+               :cl-annot
+	       :ironclad)
   :components ((:module "src"
                 :components
                 ((:file "cl-mstdn"))))

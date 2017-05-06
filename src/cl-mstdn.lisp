@@ -6,7 +6,7 @@
 (ql:quickload 'dexador)
 (ql:quickload 'json)
 (ql:quickload 'cl-annot)
-;; :TODO
+;; :TODO stream api implement, write description
 
 @export
 (defun request-client-token (instance &optional (scopes "read write follow"))
@@ -371,3 +371,10 @@ header = A base64 encoded image to display as the user's header image
 (defun get-hashtag-timeline (instance hash-tag &optional local max-id since-id limit)
   (json:decode-json-from-string
    (dex:get (concatenate 'string "https://" instance "/api/v1/timelines/tag/" hash-tag))))
+
+;;; stream API
+;; :FIX error?
+@export
+(defun get-user-event (instance token)
+  (dex:get (concatenate 'string "https://" instance "/api/v1/streaming/user")
+	   :headers (auth-header token)))
