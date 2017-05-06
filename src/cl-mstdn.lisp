@@ -19,10 +19,15 @@
 
 (defun get-query (alist)
   "((a . b) (c . d)) => ?a=b&c=d"
-  (strings "?"
-	   (reduce (lambda (x y) (strings x "&" y))
-		   (mapcar (lambda (pair) (strings (car pair) "=" (cdr pair)))
-			   alist))))
+  (if alist
+      (strings "?"
+	       (reduce (lambda (x y) (strings x "&" y))
+		       (mapcar (lambda (pair) (strings (car pair) "=" (cdr pair)))
+			       alist)))
+      ""))
+
+(defmacro push-pair (name val exists-p place)
+  `(if ,exists-p (push (cons ,name ,val) ,place)))
 
 ;; :TODO stream api implement, write description
 
@@ -81,10 +86,17 @@ header = A base64 encoded image to display as the user's header image
 	       :content content))
 
 @export
-(defun get-followers (instance token &optional max-id since-id limit)
-  (let ((user-id (cdr (assoc :id (get-current-user instance token)))))
+(defun get-followers (instance token user-id &optional
+					       (max-id nil max-id-p)
+					       (since-id nil since-id-p)
+					       (limit 0 limit-p))
+  (let ((querys nil)
+	(uid (princ-to-string user-id)))
+    (push-pair "max_id" (princ-to-string max-id) max-id-p querys)
+    (push-pair "since_id" (princ-to-string since-id) since-id-p querys)
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
     (json:decode-json-from-string
-     (dex:get (instance-url instance (format nil "/api/v1/accounts/~A/following" user-id))
+     (dex:get (instance-url instance "/api/v1/accounts/" uid "/following" (get-query querys))
 	      :headers (auth-header token)))))
 
 ;; TODO query
