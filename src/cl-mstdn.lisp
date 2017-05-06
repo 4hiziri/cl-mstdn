@@ -8,11 +8,26 @@
 (ql:quickload 'cl-annot)
 (ql:quickload :websocket-driver-client)
 
+
+;;; private
+
+;; :TODO test
+(defun strings (&rest strs)
+  "concatenate 'string"
+  (apply #'concatenate (cons 'string strs)))
+
+(defun get-query (alist)
+  "((a . b) (c . d)) => ?a=b&c=d"
+  (strings "?"
+	   (reduce (lambda (x y) (strings x "&" y))
+		   (mapcar (lambda (pair) (strings (car pair) "=" (cdr pair)))
+			   alist))))
+
 ;; :TODO stream api implement, write description
 
 @export
 (defun request-client-token (instance &optional (scopes "read write follow"))
-  (let* ((url (concatenate 'string "https://" instance "/api/v1/apps"))
+  (let* ((url (strings "https://" instance "/api/v1/apps"))
 	 (json-str (dex:post url
 				 :content `(("client_name" . ,*me*)
 					    ("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
@@ -22,7 +37,7 @@
 ;; :TODO change grant_type
 @export
 (defun auth-client (instance token username password &optional (scope "read write follow"))
-  (let ((url (concatenate 'string "https://" instance "/oauth/token")))
+  (let ((url (strings "https://" instance "/oauth/token")))
     (json:decode-json-from-string
      (dex:post url
 		   :content `(("client_id" . ,(cdr (assoc :client--id token)))
@@ -41,13 +56,13 @@
 @export
 (defun fetch-account (instance token usr-id)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/accounts/" (format nil "~A" usr-id))
+   (dex:get (strings "https://" instance "/api/v1/accounts/" (format nil "~A" usr-id))
 		 :headers (auth-header token))))
 
 @export
 (defun get-current-user (instance token)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/accounts/verify_credentials")
+   (dex:get (strings "https://" instance "/api/v1/accounts/verify_credentials")
 		:headers (auth-header token))))
 
 ;; :TODO unifying by it's item?
@@ -61,7 +76,7 @@ avatar = A base64 encoded image to display as the user's avatar
 header = A base64 encoded image to display as the user's header image 
 (e.g. data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAADrCAYAAAA...)
 "
-  (dex:request (concatenate 'string "https://" instance "/api/v1/accounts/update_credentials")
+  (dex:request (strings "https://" instance "/api/v1/accounts/update_credentials")
 	       :method :patch
 	       :headers (auth-header token)
 	       :content content))
@@ -70,7 +85,7 @@ header = A base64 encoded image to display as the user's header image
 (defun get-followers (instance token &optional content)
   (let ((user-id (cdr (assoc :id (get-current-user instance token)))))
     (json:decode-json-from-string
-     (dex:get (concatenate 'string
+     (dex:get (strings
 			   "https://"
 			   instance
 			   (format nil "/api/v1/accounts/~A/following" user-id))
@@ -82,7 +97,7 @@ header = A base64 encoded image to display as the user's header image
 (defun get-account-status (instance token)  
   (let ((user-id (cdr (assoc :id (get-current-user instance token)))))
     (json:decode-json-from-string
-     (dex:get (concatenate 'string
+     (dex:get (strings
 			   "https://"
 			   instance
 			   (format nil "/api/v1/accounts/~A/statuses" 239))
@@ -92,7 +107,7 @@ header = A base64 encoded image to display as the user's header image
 (defun account-method-account (instance token account method)
   (let ((user-id (cdr (assoc :id account))))
     (json:decode-json-from-string
-     (dex:post (concatenate 'string
+     (dex:post (strings
 			    "https://"
 			    instance
 			    (format nil "/api/v1/accounts/~A/~A" user-id method))
@@ -128,7 +143,7 @@ header = A base64 encoded image to display as the user's header image
 (defun account-relations (instance token account)
   (let ((user-id (cdr (assoc :id account))))
     (json:decode-json-from-string
-     (dex:get (concatenate 'string
+     (dex:get (strings
 			    "https://"
 			    instance
 			    (format nil "/api/v1/accounts/relationships?id=~A" user-id))
@@ -138,7 +153,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun search-accounts (instance token query &optional (limit 40))
   (json:decode-json-from-string
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 (format nil "/api/v1/accounts/search?q=~A&limit=~A" query limit))
@@ -149,7 +164,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun fetch-method (instance token method max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/" method)
+   (dex:get (strings "https://" instance "/api/v1/" method)
 	    :headers (auth-header token))))
 
 @export
@@ -166,7 +181,7 @@ header = A base64 encoded image to display as the user's header image
 
 @export
 (defun auth-follow-req (instance token permit id)
-  (dex:post (concatenate 'string
+  (dex:post (strings
 			 "https://"
 			 instance
 			 (format nil "/api/v1/follow_requests/~A/~A" id permit))
@@ -184,19 +199,19 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun follow (instance token uri)
   (json:decode-json-from-string
-   (dex:post (concatenate 'string "https://" instance "/api/v1/follows")
+   (dex:post (strings "https://" instance "/api/v1/follows")
 	     :headers (auth-header token)
 	     :content `(("uri" . ,uri)))))
 
 @export
 (defun instances-info (instance)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/instance"))))
+   (dex:get (strings "https://" instance "/api/v1/instance"))))
 
 ;; :TODO researh how to use
 @export
 (defun upload-media (instance token file)
-  (dex:post (concatenate 'string "https://" instance "/api/v1/media")
+  (dex:post (strings "https://" instance "/api/v1/media")
 	    :headers (auth-header token)
 	    :content `(("file" . ,file))))
 
@@ -204,19 +219,19 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun fetch-user-mutes (instance token &optional max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/mutes")
+   (dex:get (strings "https://" instance "/api/v1/mutes")
 	    :headers (auth-header token))))
 
 @export
 (defun fetch-user-notifications (instance token &optional max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/notifications")
+   (dex:get (strings "https://" instance "/api/v1/notifications")
 	    :headers (auth-header token))))
 
 @export
 (defun fetch-user-notification (instance token id)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 (format nil "/api/v1/notifications/~A" id))
@@ -225,19 +240,19 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun clear-user-notifications (instance token)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/notifications/clear")
+   (dex:get (strings "https://" instance "/api/v1/notifications/clear")
 	    :headers (auth-header token))))
 
 @export
 (defun fetch-user-reports (instance token)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/reports")
+   (dex:get (strings "https://" instance "/api/v1/reports")
 	    :headers (auth-header token))))
 
 @export
 (defun report-user (instance token account-id status-ids comment)
   (json:decode-json-from-string
-   (dex:post (concatenate 'string "https://" instance "/api/v1/reports")
+   (dex:post (strings "https://" instance "/api/v1/reports")
 	     :headers (auth-header token)
 	     :content `(("account_id" . ,account-id)
 			("status_ids" . ,status-ids)
@@ -248,7 +263,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun search-contents (instance query resolve)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 "/api/v1/search"
@@ -258,7 +273,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun fetch-status-method (instance account-id method)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 "/api/v1/statuses/"
@@ -280,7 +295,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun fetch-status-method-with-param (instance account-id method &optional max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 "/api/v1/statuses/"
@@ -290,7 +305,7 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun get-who-method (instance status-id method &optional max-id since-id limit)
   (json:decode-json-from-string   
-   (dex:get (concatenate 'string
+   (dex:get (strings
 			 "https://"
 			 instance
 			 "/api/v1/statuses/"
@@ -316,21 +331,21 @@ header = A base64 encoded image to display as the user's header image
     spoiler_text (optional): text to be shown as a warning before the actual content
     visibility (optional): either \"direct\", \"private\", \"unlisted\" or \"public\"
 "
-  (dex:post (concatenate 'string "https://" instance "/api/v1/statuses")
+  (dex:post (strings "https://" instance "/api/v1/statuses")
 	    :headers (auth-header token)
 	    :content `(("status" . ,status-txt))))
 
 @export
 (defun delete-status (instance token status-id)
   (json:decode-json-from-string
-   (dex:request (concatenate 'string "https://" instance "/api/v1/statuses/" (princ-to-string status-id))
+   (dex:request (strings "https://" instance "/api/v1/statuses/" (princ-to-string status-id))
 		:method :delete
 		:headers (auth-header token))))
 
 @export
 (defun status-method (instance token status-id method)
   (json:decode-json-from-string
-   (dex:post (concatenate 'string
+   (dex:post (strings
 			  "https://"
 			  instance
 			  "/api/v1/statuses/"
@@ -361,18 +376,18 @@ header = A base64 encoded image to display as the user's header image
 @export
 (defun get-home-timeline (instance token &optional max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/timelines/home")
+   (dex:get (strings "https://" instance "/api/v1/timelines/home")
 	    :headers (auth-header token))))
 
 @export
 (defun get-public-timeline (instance &optional local max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/timelines/public"))))
+   (dex:get (strings "https://" instance "/api/v1/timelines/public"))))
 
 @export
 (defun get-hashtag-timeline (instance hash-tag &optional local max-id since-id limit)
   (json:decode-json-from-string
-   (dex:get (concatenate 'string "https://" instance "/api/v1/timelines/tag/" hash-tag))))
+   (dex:get (strings "https://" instance "/api/v1/timelines/tag/" hash-tag))))
 
 ;;; stream API
 ;;; https://github.com/tootsuite/documentation/blob/master/Using-the-API/Streaming-API.md
