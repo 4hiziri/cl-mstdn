@@ -5,8 +5,9 @@
 ;; :TODO stream api implement, write description
 
 (ql:quickload 'dexador)
-(ql:quickload 'json)
+(ql:quickload 'cl-json)
 (ql:quickload 'cl-annot)
+(cl-annot:enable-annot-syntax)
 
 ;;; private
 
@@ -32,7 +33,7 @@
 
 
 ;;; struct
-(defstruct account
+(defstruct Account
   account-id
   user-name
   acct
@@ -49,9 +50,93 @@
   header-static)
 
 
-(defstruct app
+(defstruct App
   name
   (website ""))
+
+(defstruct Attachment
+  attach-id
+  type
+  url
+  remote-url
+  preview-url
+  text-url)
+
+(defstruct Card
+  url
+  title
+  description
+  image)
+
+(defstruct Context
+  ancestors
+  descendants)
+
+(defstruct Error
+  error)
+
+(defstruct Instance
+  uri
+  title
+  description
+  email)
+
+(defstruct Mention
+  url
+  user-name
+  acc
+  id)
+
+(defstruct Notification
+  note-id
+  type
+  created-at
+  account
+  status)
+
+(defstruct Relationship
+  rel-id
+  followings
+  followed_by
+  block
+  mute
+  requested)
+
+(defstruct Report
+  report-id
+  action-taken)
+
+(defstruct Result
+  accounts
+  statuses
+  hashtags)
+
+(defstruct Status
+  status-id
+  uri
+  url
+  account
+  reply-to-status
+  reply-to-account
+  reblog-status
+  content
+  created-at
+  reblogs-count
+  favourites-count
+  reblogged
+  favourited
+  sensitive
+  spoiler-text
+  visibility
+  media-attach
+  mentions
+  tags
+  app)
+
+(defstruct Tag
+  name
+  url)
+
 
 ;;; public
 @export
