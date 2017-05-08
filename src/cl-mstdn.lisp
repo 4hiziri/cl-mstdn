@@ -48,6 +48,11 @@
   header
   header-static)
 
+
+(defstruct app
+  name
+  (website ""))
+
 ;;; public
 @export
 (defun request-client-token (instance &optional (scopes "read write follow"))
