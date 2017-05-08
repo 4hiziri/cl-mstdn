@@ -3,6 +3,8 @@
   (:use :cl))
 (in-package :cl-mstdn)
 ;; :TODO stream api implement, write description
+;; :TODO handling record not found error
+;; :TODO rename function
 
 (ql:quickload 'dexador)
 (ql:quickload 'cl-json)
@@ -40,6 +42,11 @@
 
 (defun getalist (key alist)
   (cdr (assoc key alist)))
+
+(defun list-mstdn-array (array-name list)
+  (reduce (lambda (x y) (strings x "&" y))
+	    (mapcar (lambda (x) (strings array-name "[]=" (princ-to-string x)))
+		    list)))
 
 ;;;; struct
 ;; Should I use Local-time?
@@ -289,7 +296,7 @@
 		   :media-attach (mapcar #'json-attachment (getalist :media--attachments json-alist))
 		   :mentions (mapcar #'json-mention (getalist :mentions json-alist))
 		   :tags (mapcar #'json-tag (getalist :tags json-alist))
-		   :app (getalist :application json-alist))
+		   :app (json-app (getalist :application json-alist)))
       nil))
 ;; TODO make functions return these struct
 
@@ -344,7 +351,7 @@ avatar = A base64 encoded image to display as the user's avatar
 (e.g. data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAADrCAYAAAA...)
 header = A base64 encoded image to display as the user's header image 
 (e.g. data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAADrCAYAAAA...)
-      "
+"
 (json-account
  (json:decode-json-from-string
   (dex:request (instance-url instance "/api/v1/accounts/update_credentials")
@@ -386,9 +393,6 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "limit" (princ-to-string limit) limit-p querys)
     (get-follow-info instance token "following" uid (get-query querys))))
 
-;; TODO query
-;; TODO another user
-;; return statuses
 @export
 (defun get-account-status (instance token user-id &key
 						    (only-media nil media-p)
@@ -408,18 +412,16 @@ header = A base64 encoded image to display as the user's header image
 	     (dex:get (strings "https://" instance "/api/v1/accounts/" uid "/statuses")
 		      :headers (auth-header token))))))
 
-;; return relationships
 @export
-(defun account-method-account (instance token account method)
-  (let ((user-id (princ-to-string (getalist :id account))))
-    (json:decode-json-from-string
-     (dex:post (instance-url instance "/api/v1/accounts/" (format nil "~A/~A" user-id method))
-	       :headers (auth-header token)))))
+(defun account-method-account (instance token user-id method)
+  (json-relation
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/api/v1/accounts/" (format nil "~A/~A" user-id method))
+	      :headers (auth-header token)))))
 
-;; :TODO research HOW TO Follow
 @export
-(defun follow-account (instance token account)
-  (account-method-account instance token account "follow"))
+(defun follow-account (instance token user-id)
+  (account-method-account instance token user-id "follow"))
 
 @export
 (defun unfollow-account (instance token account)
@@ -441,35 +443,30 @@ header = A base64 encoded image to display as the user's header image
 (defun unmute-account (instance token account)
   (account-method-account instance token account "unmute"))
 
-;; TODO array after implement accounts struct
 @export
-(defun account-relations (instance token &optional (account nil account-p))
-  (let ((user-id (if account-p ;; :TODO duplicated
-		     (princ-to-string (getalist :id account))
-		     "")))
-    (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/accounts/relationships" (if account-p
-									  (strings "?id=" user-id)
-									  ""))
-	      :headers (auth-header token)))))
+(defun account-relations (instance token ids)
+  (mapcar #'json-relation 
+	  (json:decode-json-from-string
+	   (dex:get (instance-url instance "/api/v1/accounts/relationships?" (list-mstdn-array "id" ids))
+		    :headers (auth-header token)))))
 
-;; :TODO limit branch
-;; return accounts
 @export
 (defun search-accounts (instance token query &optional (limit nil limit-p))
   (let ((querys nil))
     (push-pair "q" query t querys)
     (push-pair "limit" limit limit-p querys)
-    (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/accounts/search" (get-query (reverse querys)))
-	      :headers (auth-header token)))))
+    (mapcar #'json-account
+	    (json:decode-json-from-string
+	     (dex:get (instance-url instance "/api/v1/accounts/search" (get-query (reverse querys)))
+		      :headers (auth-header token))))))
 
 ;;; apps
 ;; :TODO implement query
 (defun fetch-method (instance token method querys)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/" method querys)
-	    :headers (auth-header token))))
+  (mapcar #'json-account
+	  (json:decode-json-from-string
+	   (dex:get (instance-url instance "/api/v1/" method querys)
+		    :headers (auth-header token)))))
 
 @export
 (defun fetch-user-blocks (instance token &key
@@ -498,10 +495,10 @@ header = A base64 encoded image to display as the user's header image
 					       (max-id nil max-p)
 					       (since-id nil since-p)
 					       (limit nil limit-p))
-  (let ((querys nil))    
-    (push-pair "max_id" (princ-to-string max-id) max-p querys)    
+  (let ((querys nil))
+    (push-pair "max_id" (princ-to-string max-id) max-p querys)
     (push-pair "since_id" (princ-to-string since-id) since-p querys)
-    (push-pair "limit" (princ-to-string limit) limit-p querys)    
+    (push-pair "limit" (princ-to-string limit) limit-p querys)
     (fetch-method instance token "follow_requests" querys)))
 
 @export
@@ -509,7 +506,8 @@ header = A base64 encoded image to display as the user's header image
   (dex:post (instance-url instance
 			  (format nil "/api/v1/follow_requests/~A/~A" id permit-method))
 	    :headers (auth-header token)
-	    :content `(("id" . ,id))))
+	    :content `(("id" . ,id)))
+  nil)
 
 @export
 (defun authorize-follow-req (instance token id)
@@ -519,29 +517,28 @@ header = A base64 encoded image to display as the user's header image
 (defun reject-follow-req (instance token id)
   (auth-follow-req instance token "reject" id))
 
-;; return accounts
 @export
 (defun follow (instance token user-uri)
-  (json:decode-json-from-string
-   (dex:post (instance-url instance "/api/v1/follows")
-	     :headers (auth-header token)
-	     :content `(("uri" . ,user-uri)))))
+  (json-account
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/api/v1/follows")
+	      :headers (auth-header token)
+	      :content `(("uri" . ,user-uri))))))
 
-;; return instance
 @export
 (defun instances-info (instance)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/instance"))))
+  (json-instance
+   (json:decode-json-from-string
+    (dex:get (instance-url instance "/api/v1/instance")))))
 
 ;; :TODO researh how to use
-;; return attachment, maybe add attachment'id to statuses
 @export
 (defun upload-media (instance token file-data)
-  (dex:post (instance-url instance "/api/v1/media")
-	    :headers (auth-header token)
-	    :content `(("file" . ,file))))
+  (json-attachment
+   (dex:post (instance-url instance "/api/v1/media")
+	     :headers (auth-header token)
+	     :content `(("file" . ,file-data)))))
 
-;; :TODO parameter
 @export
 (defun fetch-user-mutes (instance token &key
 					       (max-id nil max-p)
@@ -564,35 +561,36 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "limit" (princ-to-string limit) limit-p querys)    
     (fetch-method instance token "notifications" querys)))
 
-;; return notifications
 @export
 (defun fetch-user-notification (instance token id)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance (format nil "/api/v1/notifications/~A" id))
-	    :headers (auth-header token))))
+  (mapcar #'json-notification
+	  (json:decode-json-from-string
+	   (dex:get (instance-url instance (format nil "/api/v1/notifications/~A" id))
+		    :headers (auth-header token)))))
 
 @export
 (defun clear-user-notifications (instance token)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/notifications/clear")
-	    :headers (auth-header token))))
+  (dex:get (instance-url instance "/api/v1/notifications/clear")
+	   :headers (auth-header token))
+  nil)
 
 @export
 (defun fetch-user-reports (instance token)
-  (json:decode-json-from-string
-   (dex:get (instance-url instance "/api/v1/reports")
-	    :headers (auth-header token))))
+  (mapcar #'json-report
+	  (json:decode-json-from-string
+	   (dex:get (instance-url instance "/api/v1/reports")
+		    :headers (auth-header token)))))
 
-;; return report
-;; TODO array
+;; :TODO test
 @export
 (defun report-user (instance token account-id status-ids comment)
-  (json:decode-json-from-string
-   (dex:post (instance-url instance "/api/v1/reports")
-	     :headers (auth-header token)
-	     :content `(("account_id" . ,account-id)
-			("status_ids" . ,status-ids)
-			("comment" . ,comment)))))
+  (json-report
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/api/v1/reports")
+	      :headers (auth-header token)
+	      :content `(("account_id" . ,account-id)
+			 ("status_ids" . ,(list-mstdn-array "status_ids" status-ids))
+			 ("comment" . ,comment))))))
 
 ;;; search
 ;; TODO resolve check
@@ -601,31 +599,37 @@ header = A base64 encoded image to display as the user's header image
   (let ((querys nil))
     (push-pair "q" query t querys)
     (push-pair "resolve" resolve t querys)
-    (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/search" (get-query querys))))))
+    (json-result
+     (json:decode-json-from-string
+      (dex:get (instance-url instance "/api/v1/search" (get-query querys)))))))
 
 ;;; statuses
-@export
 (defun fetch-status-method (instance status-id method)
   (json:decode-json-from-string
    (dex:get (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) method))))
 
 @export
 (defun fetch-status (instance status-id)
-  (fetch-status-method instance status-id ""))
+  (json-status (fetch-status-method instance status-id "")))
 
 @export
-(defun fetch-status-context (instance status-id)
-  (fetch-status-method instance status-id "/context"))
+(defun fetch-status-context (instance status-id)  
+  (json-context (fetch-status-method instance status-id "/context")))
 
 @export
 (defun fetch-status-card (instance status-id)
-  (fetch-status-method instance status-id "/card"))
+  (json-card (fetch-status-method instance status-id "/card")))
 
-@export
+;; :TODO rename
 (defun get-who-method (instance status-id method querys)
-  (json:decode-json-from-string   
-   (dex:get (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) "/" method querys))))
+  (mapcar #'json-account
+	  (json:decode-json-from-string
+	   (dex:get (instance-url instance
+				  "/api/v1/statuses/"
+				  (princ-to-string status-id)
+				  "/"
+				  method
+				  querys)))))
 
 @export
 (defun get-who-reblog (instance status-id &key (max-id nil max-p)
@@ -638,7 +642,7 @@ header = A base64 encoded image to display as the user's header image
     (get-who-method instance status-id "reblogged_by" querys)))
 
 @export
-(defun get-who-reblog (instance status-id &key (max-id nil max-p)
+(defun get-who-favourite (instance status-id &key (max-id nil max-p)
 					    (since-id nil since-p)
 					    (limit nil limit-p))
   (let ((querys nil))    
@@ -671,23 +675,24 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "sensitive" sensitive sensitive-p param)
     (push-pair "spoiler_text" spoiler-text spoiler-p param)
     (push-pair "visibility" visibility visibility-p param)
-    (json:decode-json-from-string
-     (dex:post (instance-url instance "/api/v1/statuses")
-	       :headers (auth-header token)
-	       :content param))))
+    (json-status
+     (json:decode-json-from-string
+      (dex:post (instance-url instance "/api/v1/statuses")
+		:headers (auth-header token)
+		:content param)))))
 
 @export
 (defun delete-status (instance token status-id)
-  (json:decode-json-from-string
-   (dex:request (instance-url instance "/api/v1/statuses/" (princ-to-string status-id))
+  (dex:request (instance-url instance "/api/v1/statuses/" (princ-to-string status-id))
 		:method :delete
-		:headers (auth-header token))))
+		:headers (auth-header token))
+  nil)
 
-@export
 (defun status-method (instance token status-id method)
-  (json:decode-json-from-string
-   (dex:post (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) "/" method)
-	     :headers (auth-header token))))
+  (json-status
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/api/v1/statuses/" (princ-to-string status-id) "/" method)
+	      :headers (auth-header token)))))
 
 ;; boost
 @export
@@ -716,7 +721,10 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "max_id" (princ-to-string max-id) max-p querys)    
     (push-pair "since_id" (princ-to-string since-id) since-p querys)
     (push-pair "limit" (princ-to-string limit) limit-p querys)
-    (fetch-method instance token "timelines/home" querys)))
+    (mapcar #'json-status
+	    (json:decode-json-from-string
+	     (dex:get (instance-url instance "/api/v1/timelines/home" querys)
+		      :headers (auth-header token))))))
 
 @export
 (defun get-public-timeline (instance &key (local nil local-p)
@@ -728,8 +736,9 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "max_id" (princ-to-string max-id) max-p querys)    
     (push-pair "since_id" (princ-to-string since-id) since-p querys)
     (push-pair "limit" (princ-to-string limit) limit-p querys)
-    (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/timelines/public" (get-query querys))))))
+    (mapcar #'json-status
+	    (json:decode-json-from-string
+	     (dex:get (instance-url instance "/api/v1/timelines/public" (get-query querys)))))))
 
 @export
 (defun get-hashtag-timeline (instance hash-tag &key (local nil local-p)
@@ -741,8 +750,9 @@ header = A base64 encoded image to display as the user's header image
     (push-pair "max_id" (princ-to-string max-id) max-p querys)    
     (push-pair "since_id" (princ-to-string since-id) since-p querys)
     (push-pair "limit" (princ-to-string limit) limit-p querys)
-    (json:decode-json-from-string
-     (dex:get (instance-url instance "/api/v1/timelines/tag/" hash-tag (get-query querys))))))
+    (mapcar #'json-status
+	    (json:decode-json-from-string
+	     (dex:get (instance-url instance "/api/v1/timelines/tag/" hash-tag (get-query querys)))))))
 
 ;;; stream API
 ;;; https://github.com/tootsuite/documentation/blob/master/Using-the-API/Streaming-API.md
