@@ -137,6 +137,7 @@
   name
   url)
 
+;; TODO make functions return these struct
 
 ;;; public
 @export
