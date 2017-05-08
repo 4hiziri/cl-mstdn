@@ -7,9 +7,11 @@
 (ql:quickload 'dexador)
 (ql:quickload 'cl-json)
 (ql:quickload 'cl-annot)
+(ql:quickload 'alexandria)
 (cl-annot:enable-annot-syntax)
 
 ;;; private
+(defparameter *me* "test-framework")
 
 ;; :TODO test
 (defun strings (&rest strs)
@@ -32,14 +34,26 @@
   `(if ,exists-p (push (cons ,name ,val) ,place)))
 
 
-;;; struct
+;;;; struct
+(defstruct Client-token
+  id
+  redirect-uri
+  client-id
+  secret-key)
+
+(defstruct Access-token
+  access-token
+  token-type
+  scope
+  created-time)
+
 (defstruct Account
   account-id
   user-name
   acct
   display-name
-  locked
-  created_at
+  locked-p
+  created_time
   followers-count
   following-count
   note
@@ -90,7 +104,7 @@
 (defstruct Notification
   note-id
   type
-  created-at
+  created-time
   account
   status)
 
@@ -120,7 +134,7 @@
   reply-to-account
   reblog-status
   content
-  created-at
+  created-time
   reblogs-count
   favourites-count
   reblogged
@@ -137,16 +151,24 @@
   name
   url)
 
+;;; json-struct
+(defun json-client-token (json-alist)
+  (make-client-token :id (cdr (assoc :id json-alist))
+		     :redirect-uri (cdr (assoc :redirect--uri json-alist))
+		     :client-id (cdr (assoc :client--id json-alist))
+		     :secret-key (cdr (assoc :client--secret json-alist))))
+
 ;; TODO make functions return these struct
 
 ;;; public
 @export
 (defun request-client-token (instance &optional (scopes "read write follow"))
-  (json:decode-json-from-string
-   (dex:post (instance-url instance "/api/v1/apps")
-	     :content `(("client_name" . ,*me*)
-			("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
-			("scopes" . ,scopes))))) ;; add website
+  (json-client-token
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/api/v1/apps")
+	      :content `(("client_name" . ,*me*)
+			 ("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
+			 ("scopes" . ,scopes)))))) ;; add website
 
 ;; :TODO change grant_type
 @export
