@@ -1,4 +1,7 @@
 # Cl-Mstdn
+common-lisp製
+MastodonlのAPIへアクセスするためのライブラリ
+Stream APIは実装できてない
 
 ## Usage
 ```lisp
