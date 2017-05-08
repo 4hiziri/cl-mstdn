@@ -7,7 +7,7 @@
 (ql:quickload 'dexador)
 (ql:quickload 'cl-json)
 (ql:quickload 'cl-annot)
-(ql:quickload 'alexandria)
+(ql:quickload 'split-sequence)
 (cl-annot:enable-annot-syntax)
 
 ;;; private
@@ -34,7 +34,12 @@
   `(if ,exists-p (push (cons ,name ,val) ,place)))
 
 
+(defun auth-header (token)
+  (list (cons "Authorization"
+	      (format nil "Bearer ~A" (cdr (assoc :access--token token))))))
+
 ;;;; struct
+;; Should I use Local-time?
 (defstruct Client-token
   id
   redirect-uri
@@ -86,10 +91,10 @@
   ancestors
   descendants)
 
-(defstruct Error
-  error)
+(defstruct Mstdn-error
+  mstdn-error)
 
-(defstruct Instance
+(defstruct Mstdn-instance
   uri
   title
   description
@@ -158,11 +163,18 @@
 		     :client-id (cdr (assoc :client--id json-alist))
 		     :secret-key (cdr (assoc :client--secret json-alist))))
 
+(defun json-access-token (json-alist)  
+  (make-access-token :access-token (cdr (assoc :access--token json-alist))
+		     :token-type (cdr (assoc :token--type json-alist))
+		     ;; to symbol ?
+		     :scope (split-sequence:split-sequence #\space (cdr (assoc :scope json-alist)))
+		     :created-time (cdr (assoc :created--at json-alist))))
+
 ;; TODO make functions return these struct
 
 ;;; public
 @export
-(defun request-client-token (instance &optional (scopes "read write follow"))
+(defun request-client-token (instance &key (scopes "read write follow"))
   (json-client-token
    (json:decode-json-from-string
     (dex:post (instance-url instance "/api/v1/apps")
@@ -172,20 +184,17 @@
 
 ;; :TODO change grant_type
 @export
-(defun register-client (instance token username password &optional (scope "read write follow"))
-  (json:decode-json-from-string
-   (dex:post (instance-url instance "/oauth/token")
-	     :content `(("client_id" . ,(cdr (assoc :client--id token)))
-			("client_secret" . ,(cdr (assoc :client--secret token)))
-			("grant_type" . "password")
-			("username" . ,username)
-			("password" . ,password)
-			("scope" . ,scope)))))
-
-
-(defun auth-header (token)
-  (list (cons "Authorization"
-	      (format nil "Bearer ~A" (cdr (assoc :access--token token))))))
+(defun register-client (instance token username password &key (scope "read write follow") (website ""))
+  (json-access-token
+   (json:decode-json-from-string
+    (dex:post (instance-url instance "/oauth/token")
+	      :content `(("client_id" . ,(cdr (assoc :client--id token)))
+			 ("client_secret" . ,(cdr (assoc :client--secret token)))
+			 ("grant_type" . "password")
+			 ("username" . ,username)
+			 ("password" . ,password)
+			 ("scope" . ,scope)
+			 ("website" . ,website))))))
 
 ;;; accounts
 @export
