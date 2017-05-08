@@ -2,6 +2,7 @@
 (defpackage cl-mstdn
   (:use :cl))
 (in-package :cl-mstdn)
+;; :TODO stream api implement, write description
 
 (ql:quickload 'dexador)
 (ql:quickload 'json)
@@ -29,8 +30,25 @@
 (defmacro push-pair (name val exists-p place)
   `(if ,exists-p (push (cons ,name ,val) ,place)))
 
-;; :TODO stream api implement, write description
 
+;;; struct
+(defstruct account
+  account-id
+  user-name
+  acct
+  display-name
+  locked
+  created_at
+  followers-count
+  following-count
+  note
+  url
+  avatar
+  avatar-static ;; If user uses gif file as avatar pic, static image's url is returned
+  header
+  header-static)
+
+;;; public
 @export
 (defun request-client-token (instance &optional (scopes "read write follow"))
   (json:decode-json-from-string
@@ -51,7 +69,7 @@
 			("password" . ,password)
 			("scope" . ,scope)))))
 
-@export
+
 (defun auth-header (token)
   (list (cons "Authorization"
 	      (format nil "Bearer ~A" (cdr (assoc :access--token token))))))
