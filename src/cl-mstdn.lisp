@@ -67,6 +67,20 @@
     (ironclad:encrypt cipher plain-text encrypted)
     (ironclad:byte-array-to-hex-string encrypted)))
 
+(defun decrypt-string (hex-string password)
+  (let* ((key (password-256-key password))
+	 (cipher (ironclad:make-cipher :aes
+				       :key key
+				       :mode :ctr
+				       :initialization-vector
+				       (subseq (password-256-key
+						(ironclad:byte-array-to-hex-string key))
+					       0 16)))
+	 (encrypted (ironclad:hex-string-to-byte-array hex-string))
+	 (decrypted (make-array (length encrypted) :element-type '(unsigned-byte 8))))
+    (ironclad:decrypt cipher encrypted decrypted)
+    (map 'string #'code-char decrypted)))
+
 (defun client-token-str (token)
   (strings ":id=" (princ-to-string (client-token-id token)) "&"
 	   ":redirect-uri=" (client-token-redirect-uri token) "&"
@@ -351,6 +365,10 @@
 ;; TODO make functions return these struct
 
 ;;; public
+@export
+(defun write-client-token (token password &optional (stream *standard-output*))
+  (format stream "~A" (encrypt-string (client-token-str token) password)))
+
 @export
 (defun request-client-token (instance &key (scopes "read write follow") (website "https://github.com/4hiziri/cl-mstdn.git"))
   (json-client-token
