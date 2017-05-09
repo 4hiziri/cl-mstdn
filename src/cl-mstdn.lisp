@@ -48,6 +48,55 @@
 	    (mapcar (lambda (x) (strings array-name "[]=" (princ-to-string x)))
 		    list)))
 
+(defun password-256-key (password)
+  (let ((digester (ironclad:make-digest :sha256)))
+    (ironclad:update-digest digester (ironclad:ascii-string-to-byte-array password))
+    (ironclad:produce-digest digester)))
+
+(defun encrypt-string (str password)
+  (let* ((key (password-256-key password))
+	 (cipher (ironclad:make-cipher :aes
+				       :key key
+				       :mode :ctr
+				       :initialization-vector
+				       (subseq (password-256-key
+						(ironclad:byte-array-to-hex-string key))
+					       0 16)))
+	 (plain-text (ironclad:ascii-string-to-byte-array str))
+	 (encrypted (make-array (length plain-text) :element-type '(unsigned-byte 8))))
+    (ironclad:encrypt cipher plain-text encrypted)
+    (ironclad:byte-array-to-hex-string encrypted)))
+
+(defun client-token-str (token)
+  (strings ":id=" (princ-to-string (client-token-id token)) "&"
+	   ":redirect-uri=" (client-token-redirect-uri token) "&"
+	   ":client-id=" (client-token-client-id token) "&"
+	   ":secret-key=" (client-token-secret-key token)))
+
+(defun str-client-token (str)
+  (let ((list (mapcar (lambda (x) (cons (read-from-string (car x)) (cadr x)))
+		      (mapcar (lambda (x) (split-sequence:split-sequence #\= x))
+			      (split-sequence:split-sequence #\& str)))))
+    (make-client-token :id (parse-integer (getalist :id list))
+		       :redirect-uri (getalist :redirect-uri list)
+		       :client-id (getalist :client-id list)
+		       :secret-key (getalist :secret-key list))))
+
+(defun access-token-str (token)
+  (strings ":access-token=" (access-token-access-token token) "&"
+	   ":token-type=" (access-token-token-type token) "&"
+	   ":scope=" (prin1-to-string (access-token-scope token)) "&"
+	   ":created-time=" (princ-to-string (access-token-created-time token))))
+
+(defun str-access-token (str)
+  (let ((list (mapcar (lambda (x) (cons (read-from-string (car x)) (cadr x)))
+		      (mapcar (lambda (x) (split-sequence:split-sequence #\= x))
+			      (split-sequence:split-sequence #\& str)))))
+    (make-access-token :access-token (getalist :access-token list)
+		       :token-type (getalist :token-type list)
+		       :scope (read-from-string (getalist :scope list))
+		       :created-time (read-from-string (getalist :created-time list)))))
+
 ;;;; struct
 ;; Should I use Local-time?
 (defstruct Client-token
@@ -176,8 +225,9 @@
 (defun json-access-token (json-alist)  
   (make-access-token :access-token (getalist :access--token json-alist)
 		     :token-type (getalist :token--type json-alist)
-		     ;; to symbol ?
-		     :scope (split-sequence:split-sequence #\space (getalist :scope json-alist))
+		     :scope (mapcar (lambda (x) (read-from-string (strings ":" x)))
+				    (split-sequence:split-sequence #\space
+								   (getalist :scope json-alist)))
 		     :created-time (getalist :created--at json-alist)))
 
 (defun json-account (json-alist)
@@ -302,27 +352,37 @@
 
 ;;; public
 @export
-(defun request-client-token (instance &key (scopes "read write follow"))
+(defun request-client-token (instance &key (scopes "read write follow") (website "https://github.com/4hiziri/cl-mstdn.git"))
   (json-client-token
    (json:decode-json-from-string
     (dex:post (instance-url instance "/api/v1/apps")
 	      :content `(("client_name" . ,*me*)
 			 ("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
-			 ("scopes" . ,scopes)))))) ;; add website
+			 ("scopes" . ,scopes)
+			 ("website" . ,website))))))
+
+;; :TODO not supported?
+(defun request-authorization-url (instance client-token)
+  (let ((querys nil))
+    (push (cons "client_id" (princ-to-string (client-token-id client-token))) querys)
+    (push (cons "responce_type" "token") querys)
+    (push (cons "redirect_uris" "urn:ietf:wg:oauth:2.0:oob") querys)
+    (push (cons "scope" "read%20write%20follow") querys) ;; test, imple as arg
+    (princ (instance-url instance "/oauth/authorize" (get-query querys)))))
 
 ;; :TODO change grant_type
 @export
-(defun register-client (instance token username password &key (scope "read write follow") (website ""))
+(defun register-client (instance token username pass &key (scope "read write follow"))
   (json-access-token
-   (json:decode-json-from-string
-    (dex:post (instance-url instance "/oauth/token")
-	      :content `(("client_id" . ,(client-token-id token))
-			 ("client_secret" . ,(client-token-secret-key token))
-			 ("grant_type" . "password")
-			 ("username" . ,username)
-			 ("password" . ,password)
-			 ("scope" . ,scope)
-			 ("website" . ,website))))))
+   (print (json:decode-json-from-string
+	   (dex:post (instance-url instance "/oauth/token")
+		     :content `(("client_id" . ,(client-token-client-id token))
+				("client_secret" . ,(client-token-secret-key token))
+				("grant_type" . "password")
+				("username" . ,username)
+				("password" . ,pass)
+				("scope" . ,scope)))))))
+
 
 ;;; accounts
 @export
