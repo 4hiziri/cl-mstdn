@@ -370,6 +370,10 @@
   (format stream "~A" (encrypt-string (client-token-str token) password)))
 
 @export
+(defun read-client-token (password &optional (stream *stadard-input*))
+  (str-client-token (decrypt-string (read-line stream) password)))
+
+@export
 (defun request-client-token (instance &key (scopes "read write follow") (website "https://github.com/4hiziri/cl-mstdn.git"))
   (json-client-token
    (json:decode-json-from-string
